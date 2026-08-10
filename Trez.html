@@ -1,0 +1,2045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+<style>
+
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+
+/* Squarespace Layout Overwrites */
+
+  /* 1. Strip out the global starfield and nebulas */
+  body::before {
+    content: none !important;
+    background-image: none !important;
+    animation: none !important;
+  }
+
+  /* 2. Strip out all three moving comets */
+  html::before, 
+  body::after, 
+  html::after {
+    content: none !important;
+    display: none !important;
+    animation: none !important;
+  }
+
+  /* 3. Set your new page background color */
+  body, 
+  html, 
+  .page-section, 
+  .section-background, 
+  .section-background-canvas,
+  .section-background-overlay,
+  .section-border {
+    background-color: #111 !important; 
+    background-image: none !important; 
+  }
+
+  /* 4. Flatten the wrapper layout engines */
+  #siteWrapper,
+  .sqs-layout,
+  main#page {
+    background-color: transparent !important;
+  }
+
+  /* 5. Hide the default template header and footer blocks entirely */
+  /* FIXED: Removed .sections from here so your core game code doesn't get hidden */
+  header, 
+  footer, 
+  .header, 
+  .footer {
+    display: none !important;
+  }
+
+  /* 6. Strip all standard layout padding constraints and margins */
+  body, 
+  html, 
+  #siteWrapper, 
+  main#page,
+  .page-section {
+    margin: 0 !important;
+    padding: 0 !important;
+    min-height: 100vh !important;
+    /* FIXED: Changed overflow parameters to work in harmony with your mobile gestures */
+    overflow-x: hidden !important; 
+    overflow-y: auto !important; /* Restores vertical container scroll outside the canvas area */
+  }
+
+
+
+
+
+
+body {
+    background: #111;
+    color: #fff;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    width: 100vw;
+    /* FIXED: Allows vertical scrolling on short phone screens if needed */
+    overflow-x: hidden;
+    overflow-y: auto; 
+    /* FIXED: Removed touch-action: none from here so the body remains scrollable */
+    padding: 10px;
+}
+
+/* Master engine layout container scaling down dynamically on small viewports */
+#game-container {
+    width: 100%;
+    max-width: 360px; /* Limits size on large desktop screens */
+    max-height: 95vh; /* Prevents overflow on short mobile screens */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+#hud {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); 
+    gap: 3px; 
+    background: #222;
+    padding: 8px 4px;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: bold;
+    border: 1px solid #333;
+    /* FIXED: Restores basic scroll manipulation mechanics outside the main grid */
+    touch-action: manipulation; 
+}
+
+#hud span {
+    display: block;
+    color: #00ffcc;
+    font-size: 13px;
+    margin-top: 2px;
+}
+
+/* Fluid responsive box containment */
+#canvas-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 8 / 12; 
+    max-width: 320px;
+    max-height: 480px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,0,0,0.8);
+    background: #151518;
+    /* FIXED: Pin touch-action: none specifically to the playing zone grid box container */
+    touch-action: none; 
+}
+
+/* Standardizes drawing engine layout to match fluid boundary blocks */
+canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    /* FIXED: Disables system default swiping only over your active canvas frame */
+    touch-action: none; 
+}
+
+
+#overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    z-index: 10;
+}
+
+#overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+#overlay-text {
+    font-size: 26px;
+    font-weight: bold;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+    color: #00ffcc;
+    text-shadow: 0 0 10px rgba(0,255,204,0.5);
+}
+
+#start-btn {
+    background: #00ffcc;
+    color: #000;
+    border: none;
+    padding: 10px 30px;
+    font-size: 16px;
+    font-weight: bold;
+    border-radius: 25px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(0,255,204,0.4);
+    transition: transform 0.1s;
+}
+
+#start-btn:active {
+    transform: scale(0.95);
+}
+
+#controls {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.ctrl-btn {
+    background: #2a2a30;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 12px 0;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 8px;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+.ctrl-btn:active {
+    background: #444450;
+}
+
+.ctrl-btn.long {
+    grid-column: span 3;
+    padding: 10px 0;
+    font-size: 15px;
+    background: #1f3a3a;
+    border-color: #00ffcc;
+    color: #00ffcc;
+}
+
+.ctrl-btn.long:active {
+    background: #00ffcc;
+    color: #000;
+}
+
+/* MOBILE MEDIA QUERY OVERRIDE: Tightens margins on very narrow or short phone screens */
+@media (max-width: 360px), (max-height: 600px) {
+    #game-container {
+        max-width: 90vw;
+    }
+    .ctrl-btn {
+        padding: 8px 0;
+        font-size: 16px;
+    }
+    .ctrl-btn.long {
+        padding: 8px 0;
+    }
+    #hud {
+        padding: 4px;
+        margin-bottom: 4px;
+        font-size: 10px;
+    }
+    #hud span {
+        font-size: 11px;
+    }
+}
+
+
+
+
+
+
+</style>
+
+
+
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Lumines Style Drop Game</title>
+    <!-- CSS code goes in the style tag below -->
+    <style></style>
+</head>
+
+
+
+<body>
+
+
+
+
+
+    <div id="game-container">
+        <div id="hud">
+            <div>Score: <span id="score-val">0</span></div>
+            <div>Combo: <span id="combo-val">X1</span></div>
+            <div>Hi-Score: <span id="high-val">0</span></div>
+            <div>Track: <span id="level-val">1</span></div>
+            <!-- Dynamic Preview Box Cell -->
+            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <div style="font-size: 10px; margin-bottom: 2px; color: #aaa;">NEXT</div>
+                <canvas id="nextCanvas" width="40" height="40" style="background: #111; border: 1px solid #333; border-radius: 4px; display: block; width: 24px; height: 24px;"></canvas>
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="gameCanvas" width="320" height="480"></canvas>
+            <div id="overlay" class="visible">
+                <div id="overlay-text">- - TREZ - -</div>
+                <button id="start-btn">PLAY</button>
+            </div>
+        </div>
+
+        <div id="controls">
+            <button class="ctrl-btn" id="btn-left">←</button>
+            <button class="ctrl-btn" id="btn-rot">↻</button>
+            <button class="ctrl-btn" id="btn-right">→</button>
+            <button class="ctrl-btn long" id="btn-drop">DROP</button>
+        </div>
+    </div>
+
+
+
+
+</body>
+</html>
+
+
+
+
+
+<script>
+
+
+
+
+
+
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const nextCanvas = document.getElementById('nextCanvas');
+const nextCtx = nextCanvas.getContext('2d');
+
+// Grid configuration (Vertical phone format)
+const ROWS = 12;
+const COLS = 8;
+const BLOCK_SIZE = 40; // 8 * 40 = 320 width, 12 * 40 = 480 height
+
+// Game State Variables
+let grid = [];
+// Particle engine storage
+let particles = [];
+// Persistent sound loop tracker for the active burst hum effect
+let burstHumOsc = null;
+let burstHumGain = null;
+let burstLFO = null;
+
+let currentPiece = null;
+let nextPiece = null; // Holds the upcoming block state definitions
+
+let score = 0;
+let highScore = localStorage.getItem('lumines_high') || 0;
+let combo = 1;
+let currentLevel = 1;
+let isPlaying = false;
+let animationFrameId = null; // Tracks the active loop to prevent duplicate ghost loops
+
+// Input hold tracking state variables
+let keysPressed = {};
+let activeSlideAction = null;
+let slideHoldTimer = 0;
+let hasHitWallSinceLastInput = false;
+// Mobile touch area gesture tracking variables
+let touchStartX = 0;
+let touchStartY = 0;
+let touchHasMovedHorizontally = false; 
+let touchAccumulatorX = 0; // Accumulates drag pixels smoothly across movement updates
+
+// TUNING COEFFICIENTS: Increase these values if the sliding still feels too twitchy
+const TOUCH_SLIDE_THRESHOLD = 28; // Increased from 15 to give your finger a larger intentional deadzone
+const DRAG_DIVIDER = 1.3;          // Dampens raw pixel data to prevent micro-jitter piece skipping
+const TOUCH_GESTURE_THRESHOLD = 45;
+
+
+const SLIDE_INITIAL_DELAY = 220; // Slightly longer hold duration before dash kicks in
+const SLIDE_REPEAT_RATE = 75;    // Increased spacing (up from 45ms) to give echo room to breathe
+
+
+// Time tracking
+let lastTime = 0;
+let dropCounter = 0;
+let metronomeY = 0; // Vertical scan line moving top-to-bottom
+
+// Web Audio API Synthesizer Setup
+let audioCtx = null;
+function initAudio() {
+    if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+}
+
+// Procedural Audio Helper Functions
+function playTone(freq, type, duration, vol) {
+    if (!audioCtx) return;
+    try {
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        
+        // If the player loops past level 10, shift square/saw waves for a dirtier grit texture
+        if (currentLevel > 10 && (type === 'sawtooth' || type === 'triangle')) {
+            osc.type = 'square'; // Distort waveform style to square roots
+        } else {
+            osc.type = type;
+        }
+        
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        
+        // ECHO PIPELINE MECHANICS
+        if (currentLevel > 10) {
+            let delay = audioCtx.createDelay();
+            let feedback = audioCtx.createGain();
+            
+            delay.delayTime.value = 0.20; // 200ms rhythm tap echo
+            feedback.gain.value = 0.40;   // 40% volume echo decay trailing feedback
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination); // Connect clean audio path
+            
+            // Build the cross-feedback echo loop
+            gain.connect(delay);
+            delay.connect(feedback);
+            feedback.connect(delay);
+            delay.connect(audioCtx.destination); // Connect echo path
+        } else {
+            // Standard original dry audio signal delivery path
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+        }
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    } catch(e) {}
+}
+
+
+function playNoise(duration, vol) {
+    if (!audioCtx) return;
+    try {
+        let bufferSize = audioCtx.sampleRate * duration;
+        let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        let data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+        let noise = audioCtx.createBufferSource();
+        noise.buffer = buffer;
+        let filter = audioCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.value = 1000;
+        let gain = audioCtx.createGain();
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        noise.connect(filter);
+        filter.connect(gain);
+        gain.connect(audioCtx.destination);
+        noise.start();
+    } catch(e) {}
+}
+// Generates a soft, airy ambient echo shimmer only during sustained rapid sliding
+function playSlideEchoSFX(config) {
+    if (!audioCtx) return;
+    try {
+        // DETECT SINGLE TAP VS SUSTAINED DASH
+        // If the player just tapped the button once, play a tiny, subtle space-click
+        if (slideHoldTimer < SLIDE_INITIAL_DELAY) {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(config.baseNote * 3.0, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.03, audioCtx.currentTime); // Very quiet, soft pop
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.02);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.02);
+            return;
+        }
+
+        // --- THE "DASH" AMBIENT SPACE SHIMMER ---
+        // Thicken the tone by creating two pure sine oscillators detuned against each other
+        let osc1 = audioCtx.createOscillator();
+        let osc2 = audioCtx.createOscillator();
+        let gainNode = audioCtx.createGain();
+        
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        
+        // Use a sky-high register for an airy, glassy tone
+        let highBase = config.baseNote * 4.0;
+        osc1.frequency.setValueAtTime(highBase, audioCtx.currentTime);
+        osc2.frequency.setValueAtTime(highBase * 1.01, audioCtx.currentTime); // Subtle pitch-phase rub
+        
+        // Glides downwards smoothly to create a "glass falling in space" texture
+        osc1.frequency.exponentialRampToValueAtTime(highBase * 0.5, audioCtx.currentTime + 0.18);
+        osc2.frequency.exponentialRampToValueAtTime(highBase * 0.51, audioCtx.currentTime + 0.18);
+
+        // Gentle, soft volume that relies on long echo trailing decay
+        gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.18);
+
+        // DUAL DELAY LINE INFUSION (Deep Space Reverb Simulation)
+        let delay1 = audioCtx.createDelay();
+        let delay2 = audioCtx.createDelay();
+        let feedback1 = audioCtx.createGain();
+        let feedback2 = audioCtx.createGain();
+
+        delay1.delayTime.value = 0.08;  // Left ear slapback
+        delay2.delayTime.value = 0.15;  // Right ear deep space trailing reflection
+        feedback1.gain.value = 0.35;    // 35% echo bounce
+        feedback2.gain.value = 0.20;    // Secondary fade
+
+        // Bind core oscillators to master gain
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(audioCtx.destination); // Direct output
+
+        // Route gain node parallel through the cross-feedback delay network
+        gainNode.connect(delay1);
+        delay1.connect(feedback1);
+        feedback1.connect(delay1);
+        delay1.connect(audioCtx.destination);
+
+        gainNode.connect(delay2);
+        delay2.connect(feedback2);
+        feedback2.connect(delay2);
+        delay2.connect(audioCtx.destination);
+
+        osc1.start();
+        osc2.start();
+        osc1.stop(audioCtx.currentTime + 0.18);
+        osc2.stop(audioCtx.currentTime + 0.18);
+    } catch(e) {}
+}
+
+// Generates a deep, soft sub-bass cosmic boundary ripple when hitting walls
+function playWallBumpSFX(config) {
+    if (!audioCtx) return;
+    try {
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        
+        osc.type = 'sine'; // Softest pure baseline hum
+        let subBase = config.baseNote * 0.3;
+        osc.frequency.setValueAtTime(subBase, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(subBase * 0.7, audioCtx.currentTime + 0.2);
+        
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.25);
+        
+        // Give the wall impact its own localized soft ambient trailing echo
+        let echo = audioCtx.createDelay();
+        echo.delayTime.value = 0.12;
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        gain.connect(echo);
+        echo.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+    } catch(e) {}
+}
+
+// Generates a heavy, booming sub-bass block-clear burst with board-density adaptive reverb
+function playClearBurstSFX(config, fillRatio) {
+    if (!audioCtx) return;
+    try {
+        let osc = audioCtx.createOscillator();
+        let gainNode = audioCtx.createGain();
+        
+        osc.type = 'sine'; // Produces the cleanest, deepest sub-bass vibration
+        
+        // Target deep sub-bass registers (0.3x your active level's base note)
+        let deepBassFreq = config.baseNote * 0.3; 
+        osc.frequency.setValueAtTime(deepBassFreq, audioCtx.currentTime);
+        // Add a weighty downward pitch bend to give the explosion immediate physical impact
+        osc.frequency.exponentialRampToValueAtTime(deepBassFreq * 0.6, audioCtx.currentTime + 0.2);
+        
+        // AMPLIFIED VOLUME PROFILE: Base loudness increases if the board is highly packed
+        let dynamicVolume = 0.38 + (fillRatio * 0.22); 
+        gainNode.gain.setValueAtTime(dynamicVolume, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
+        
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination); // Direct dry punch connection
+        
+        // ADAPTIVE HEAVY REVERB/ECHO TAIL
+        // The fuller the board is, the higher the feedback loop gain climbs, making it highly echoey
+        if (fillRatio > 0.08) {
+            let delayNode = audioCtx.createDelay();
+            let reverbFeedback = audioCtx.createGain();
+            
+            // Delay timing matches a wide, cinematic 3/16th space tap
+            delayNode.delayTime.value = 0.16; 
+            
+            // Reverb tails stretch out aggressively as blocks approach the ceiling grid limits
+            let feedbackIntensity = Math.min(0.82, 0.25 + (fillRatio * 0.65));
+            reverbFeedback.gain.setValueAtTime(feedbackIntensity, audioCtx.currentTime);
+            
+            // Construct the custom internal cross-feedback loop circuitry
+            gainNode.connect(delayNode);
+            delayNode.connect(reverbFeedback);
+            reverbFeedback.connect(delayNode);
+            delayNode.connect(audioCtx.destination); // Output ambient reflections
+        }
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+    } catch(e) {}
+}
+// Synthesizes a clean, middle-register spacey arpeggio that scales with fireworks clear count
+function playFireworkSuccessSFX(config, piecesClearedCount) {
+    if (!audioCtx || piecesClearedCount <= 0) return;
+    try {
+        // A smooth, wide major 7th arpeggio sequence for an elegant, spacey reward
+        // Intervals: Root, Major 3rd, Perfect 5th, Major 7th, Octave, Octave + 3rd
+        const midScale = [1.0, 1.25, 1.5, 1.875, 2.0, 2.5, 3.0];
+        
+        // Cap the sequence length safely between 3 and 7 steps based on block density
+        let noteChainLength = Math.min(7, Math.max(3, piecesClearedCount));
+        
+        // Use a pure, soft sine wave to match the organic, spacey tone of the main game loop
+        let oscType = 'sine';
+        
+        // Space notes out smoothly across a 280ms window so they sound like an elegant flourish
+        let stepInterval = 280 / noteChainLength;
+
+        for (let i = 0; i < noteChainLength; i++) {
+            setTimeout(() => {
+                if (!isPlaying) return;
+                
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                let delay = audioCtx.createDelay();
+                let feedback = audioCtx.createGain();
+                
+                osc.type = oscType;
+                
+                // MIDDLE REGISTER COHESION: Centered exactly at 1.0x to sit cleanly in the middle harmonics
+                let scaleIndex = i % midScale.length;
+                let targetFreq = config.baseNote * midScale[scaleIndex] * 1.0; 
+                
+                osc.frequency.setValueAtTime(targetFreq, audioCtx.currentTime);
+                
+                // Gentle, non-intrusive volume profile
+                let baseVol = 0.12 + (Math.min(10, piecesClearedCount) * 0.005);
+                gain.gain.setValueAtTime(baseVol, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+                
+                // SPACEY ECHO REVERB
+                // Soft, rhythmic delay reflections that make the notes float gracefully behind the explosion
+                delay.delayTime.value = 0.15; // 150ms spacious echo tap
+                feedback.gain.value = 0.30;   // Subtle 30% lingering fade out
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination); // Direct main path
+                
+                // Route through parallel spatial echo circuitry
+                gain.connect(delay);
+                delay.connect(feedback);
+                feedback.connect(delay);
+                delay.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            }, i * stepInterval);
+        }
+    } catch(e) {}
+}
+// Initiates a rhythmic, tempo-synced throbbing bass pulse while burst power-ups are active
+function startBurstHumSFX() {
+    if (!audioCtx) return;
+    try {
+        const config = getLevelConfig();
+        
+        // If the audio loop node doesn't exist yet, build the synthesis network
+        if (!burstHumOsc) {
+            burstHumOsc = audioCtx.createOscillator();
+            burstHumGain = audioCtx.createGain();
+            burstLFO = audioCtx.createOscillator();
+            
+            let lfoGain = audioCtx.createGain();
+
+            // 1. Core Bass Instrument
+            burstHumOsc.type = 'triangle'; // Smooth, deep bass body
+            burstHumOsc.frequency.setValueAtTime(config.baseNote * 0.4, audioCtx.currentTime); // Low bass register
+
+            // 2. The Throb Modulator (LFO)
+            // Sync the throbbing vibration speed directly to the board's active BPM rate
+            // (e.g. 90 BPM = 3Hz throbbing steps per second)
+            let throbSpeedHz = config.bpm / 60 * 2; // Throbbing running at eighth-note intervals
+            burstLFO.frequency.setValueAtTime(throbSpeedHz, audioCtx.currentTime);
+            burstLFO.type = 'sine';
+
+            // 3. Connect the structural throb circuit
+            lfoGain.gain.setValueAtTime(12, audioCtx.currentTime); // Detunes the pitch up and down by 12Hz
+            burstLFO.connect(lfoGain);
+            lfoGain.connect(burstHumOsc.frequency); // Modulates the main bass pitch back and forth!
+
+            // 4. Set baseline output volume
+            burstHumGain.gain.setValueAtTime(0, audioCtx.currentTime);
+            // Smoothly fade up into the mix to prevent a sharp click on startup
+            burstHumGain.gain.linearRampToValueAtTime(0.20, audioCtx.currentTime + 0.15);
+
+            burstHumOsc.connect(burstHumGain);
+            burstHumGain.connect(audioCtx.destination);
+
+            // Turn on the engines
+            burstHumOsc.start();
+            burstLFO.start();
+        }
+    } catch(e) {}
+}
+
+// Smoothly fades out and terminates the background throb loops once blocks are cleared
+function stopBurstHumSFX() {
+    if (burstHumGain) {
+        try {
+            burstHumGain.gain.cancelScheduledValues(audioCtx.currentTime);
+            // Gentle 180ms volume decay curve tail
+            burstHumGain.gain.linearRampToValueAtTime(0.0, audioCtx.currentTime + 0.18);
+            
+            setTimeout(() => {
+                if (burstHumOsc) {
+                    try { burstHumOsc.stop(); } catch(e) {}
+                    try { burstLFO.stop(); } catch(e) {}
+                    
+                    burstHumOsc.disconnect();
+                    burstLFO.disconnect();
+                    burstHumGain.disconnect();
+                    
+                    burstHumOsc = null;
+                    burstHumGain = null;
+                    burstLFO = null;
+                }
+            }, 200);
+        } catch(e) {}
+    }
+}
+
+
+// Level configurations (BPM, Colors, Audio Tones, and Positional Sequences)
+// Level configurations (BPM, Colors, Audio Tones, Sequences, and Dynamic Scoring Targets)
+// score needed on the level is the amount needed to transition to next level
+   // 1: { 
+       // bpm: 105, 
+      //  colors: ['#33ffcc', '#ff66ff', '#ffff66'], 
+    // baseNote: 196.00, // G3
+       // wave: 'triangle', 
+        // crashType: 'duh-tone', 
+        // scoreNeeded: 1100, 
+      //  sequence: [1.0, null, 1.25, 1.25, 1.5, null, 1.5, 1.75, 1.87, 2.0, 2.25, 'CRASH'] 
+    // },
+
+const LEVELS = {
+    1: { 
+        bpm: 105, 
+        colors: ['#33ffcc', '#ff66ff', '#ffff66'], 
+        baseNote: 196.00, // G3
+        wave: 'triangle', 
+        crashType: 'duh-tone', 
+        scoreNeeded: 1100, 
+        sequence: [1.0, null, 1.25, 1.25, 1.5, null, 1.5, 1.75, 1.87, 2.0, 2.25, 'CRASH'] 
+    },
+    2: { 
+        bpm: 65, colors: ['#ff9966', '#99ccff', '#99ff99'], baseNote: 73.42, // D2
+        wave: 'sine', crashType: 'sine-sweep', scoreNeeded: 1600, // Slightly longer heavy groove
+        sequence: [1.0, null, 1.5, null, 1.33, null, 1.8, null, 2.0, 2.2, 2.4, 'CRASH'] 
+    },
+    3: { 
+        bpm: 80, colors: ['#e066ff', '#00ffaa', '#ffcc00'], baseNote: 164.81, // E3
+        wave: 'triangle', crashType: 'duh-tone', scoreNeeded: 1000, //  Quick Blitz Board Sprint
+        sequence: [1.0, 1.33, 1.0, 1.5, 1.2, 1.6, 1.33, 1.8, 1.5, 2.0, 2.25, 'CRASH'] 
+    }, 
+    4: { 
+        bpm: 45, colors: ['#ff9900', '#3399ff', '#99ff33'], baseNote: 146.83, // D3
+        wave: 'sine', crashType: 'sine-sweep', scoreNeeded: 1200, //  Harder Extended Chill Out
+        sequence: [0.5, 0.5, 1.0, null, 1.2, 1.2, 1.5, 1.5, 1.6, 1.73, 1.87, 'CRASH'] 
+    }, 
+    5: { 
+        bpm: 110, colors: ['#00ffcc', '#ff00ff', '#ffff00'], baseNote: 196.00, // G3
+        wave: 'sine', crashType: 'sine-sweep', scoreNeeded: 1200,
+        sequence: [1.0, 1.2, null, 1.5, null, 1.2, 1.6, null, 1.8, null, 2.0, 'CRASH']
+    },
+    6: { 
+        bpm: 90, colors: ['#ffcc66', '#66ccff', '#ff66cc'], baseNote: 116.54, // Bb2 Jazz Root
+        wave: 'triangle', crashType: 'duh-tone', scoreNeeded: 1000, // Extended Jazz Session
+        sequence: [1.0, 1.25, 1.5, 1.25, 1.68, null, 1.87, 1.5, null, 2.1, 2.25, 'CRASH']
+    },
+    7: { 
+        bpm: 50, colors: ['#009966', '#cc9966', '#666699'], baseNote: 60.00, // A3
+        wave: 'sawtooth', crashType: 'duh-tone', scoreNeeded: 1000, // Fast techno burst clear out
+        sequence: [1.0, 1.5, 1.33, 1.75, 1.5, 2.0, 1.75, 2.25, 2.0, 2.5, 2.66, 'CRASH']
+    },
+    8: { 
+        bpm: 50, colors: ['#33ccff', '#33ff99', '#ff3399'], baseNote: 87.31, // F2
+        wave: 'sine', crashType: 'sine-sweep', scoreNeeded: 1300,
+        sequence: [1.0, null, null, 1.5, null, null, 1.33, null, 1.75, 1.87, 2.0, 'CRASH']
+    },
+    9: { 
+        bpm: 180, colors: ['#dbaaaa', '#ccffcc', '#333384'], baseNote: 196.00, // 
+        wave: 'sine', crashType: 'sine-sweep', scoreNeeded: 1000,
+        sequence: [1.0, 1.0, 1.12, 1.12, 1.33, 1.33, 1.5, 1.5, 1.8, 1.8, 1.9, 'CRASH']
+    },
+    10: { 
+        bpm: 130, colors: ['#ff9966', '#00ff55', '#0055ff'], baseNote: 261.63, // C4
+        wave: 'triangle', crashType: 'duh-tone', scoreNeeded: 2000, // Climax End Game Endurance Marathon
+        sequence: [1.0, 1.2, 1.33, 1.5, 1.6, 1.8, 2.0, 2.2, 2.4, 2.5, 2.66, 'CRASH']
+    },
+
+    11: { 
+        bpm: 95, colors: ['#ff3366', '#00ffcc', '#ffff33'], baseNote: 130.81, // C3
+        wave: 'triangle', crashType: 'duh-tone', scoreNeeded: 1800, // Standard Entry Threshold
+        sequence: [1, null, 1.2, null, 1.5, null, 1.33, 1.5, 1.6, 1.8, 2.0, 'CRASH'] 
+    }, 
+
+
+
+
+};
+
+
+// Returns current config loop mapping
+function getLevelConfig() {
+    // Dynamically counts total entries inside your LEVELS library
+    const totalLevelsInPool = Object.keys(LEVELS).length;
+    
+    // Smoothly wraps around (e.g. level 11, 21, 31 all map back to Level 1 colors/tracks)
+    let configIndex = ((currentLevel - 1) % totalLevelsInPool) + 1;
+    return LEVELS[configIndex];
+}
+
+
+// Calculates the total cumulative score points needed to exit the current board level state
+function getNextLevelTargetScore() {
+    let cumulativeTarget = 0;
+    
+    // Sum up the distinct score thresholds for all boards traversed up to the current state
+    for (let i = 1; i <= currentLevel; i++) {
+        let loopIndex = ((i - 1) % 10) + 1;
+        cumulativeTarget += LEVELS[loopIndex].scoreNeeded;
+    }
+    return cumulativeTarget;
+}
+
+
+// Initialize clean grid matrix
+function initGrid() {
+    grid = [];
+    for (let r = 0; r < ROWS; r++) {
+        grid[r] = [];
+        for (let c = 0; c < COLS; c++) {
+            grid[r][c] = null;
+        }
+    }
+}
+
+// Block Object definition
+// Block Object definition with specialized modifiers
+class Block {
+    constructor(colorType, isBlockage = false, isBurst = false) {
+        this.colorType = colorType; // Index mapping to active Level palette
+        this.isBlockage = isBlockage; // True for unscoreable gray blocks
+        this.isBurst = isBurst;       // True for universal color clearing blocks
+        this.highlighted = false;
+        this.matched = false;
+    }
+}
+
+// Piece definition handles rare modifier piece generations
+// Updated Piece definition with corrected spawn distributions
+class Piece {
+    constructor() {
+        const config = getLevelConfig();
+        
+        // Spawn rates: Blockage ~15%, Burst ~4%, Standard ~88%
+        const spawnRoll = Math.random();
+        
+        if (spawnRoll < 0.04) {
+            // BURST PIECE: One random color block paired with an active Burst Block
+            this.b1 = new Block(Math.floor(Math.random() * 3), false, false);
+            this.b2 = new Block(this.b1.colorType, false, true); 
+        } else if (spawnRoll < 0.21) {
+            // BLOCKAGE PIECE: Never paired together. One blockage block + one random color block.
+            this.b1 = new Block(-1, true, false); 
+            this.b2 = new Block(Math.floor(Math.random() * 3), false, false);
+        } else {
+            // STANDARD PIECE: Two random colored blocks
+            this.b1 = new Block(Math.floor(Math.random() * 3), false, false);
+            this.b2 = new Block(Math.floor(Math.random() * 3), false, false);
+        }
+        
+        // Grid Coordinate offsets (b1 acts as the center anchor pivot point)
+        this.x = Math.floor(COLS / 2) - 1;
+        this.y = 0;
+        
+        // Rotation state: 0 = 0°, 1 = 90° CW, 2 = 180° CW, 3 = 270° CW
+        this.rotationState = 0; 
+    }
+
+    getBlocks() {
+        let b2OffsetX = 0;
+        let b2OffsetY = 0;
+
+        switch(this.rotationState) {
+            case 0: b2OffsetX = 1;  b2OffsetY = 0;  break;
+            case 1: b2OffsetX = 0;  b2OffsetY = 1;  break;
+            case 2: b2OffsetX = -1; b2OffsetY = 0;  break;
+            case 3: b2OffsetX = 0;  b2OffsetY = -1; break;
+        }
+
+        return [
+            { x: this.x, y: this.y, block: this.b1 },
+            { x: this.x + b2OffsetX, y: this.y + b2OffsetY, block: this.b2 }
+        ];
+    }
+
+    move(dx, dy) {
+        this.x += dx;
+        this.y += dy;
+        if (this.checkCollision()) {
+            this.x -= dx;
+            this.y -= dy;
+            return false;
+        }
+        return true;
+    }
+
+    rotate() {
+        const oldState = this.rotationState;
+        this.rotationState = (this.rotationState + 1) % 4;
+        
+        if (this.checkCollision()) {
+            const kicks = [{x: -1, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}, {x: 0, y: -1}];
+            let kickSuccess = false;
+            for (let kick of kicks) {
+                this.x += kick.x;
+                this.y += kick.y;
+                if (!this.checkCollision()) { kickSuccess = true; break; }
+                this.x -= kick.x;
+                this.y -= kick.y;
+            }
+            if (!kickSuccess) this.rotationState = oldState;
+        }
+        playTone(getLevelConfig().baseNote * 1.5, 'triangle', 0.05, 0.1);
+    }
+
+    checkCollision() {
+        const blocks = this.getBlocks();
+        for (let b of blocks) {
+            if (b.x < 0 || b.x >= COLS || b.y < 0 || b.y >= ROWS) return true;
+            if (b.y >= 0 && grid[b.y][b.x] !== null) return true;
+        }
+        return false;
+    }
+
+    lock() {
+        const blocks = this.getBlocks();
+        let triggerColorBurst = -1;
+
+        for (let b of blocks) {
+            if (b.y >= 0) {
+                grid[b.y][b.x] = b.block;
+                if (b.block.isBurst) {
+                    triggerColorBurst = b.block.colorType;
+                }
+            }
+        }
+        
+        applyGravity();
+
+        if (triggerColorBurst !== -1) {
+            executeBurstClear(triggerColorBurst);
+        }
+
+        playTone(getLevelConfig().baseNote * 0.8, 'sine', 0.1, 0.15);
+    }
+}
+
+// Single visual spark element with vector physics
+class Particle {
+    constructor(x, y, color, size, speedX, speedY, maxLife) {
+        this.x = x;
+        this.y = y;
+        this.color = color;
+        this.size = size;
+        this.speedX = speedX;
+        this.speedY = speedY;
+        this.life = maxLife;
+        this.maxLife = maxLife;
+    }
+
+    update(deltaTime) {
+        // Apply velocity vectors
+        this.x += this.speedX * (deltaTime / 16.66);
+        this.y += this.speedY * (deltaTime / 16.66);
+        // Add subtle gravitational pull downward
+        this.speedY += 0.08 * (deltaTime / 16.66);
+        // Decay lifetime cleanly
+        this.life -= deltaTime;
+    }
+
+    draw() {
+        if (this.life <= 0) return;
+        ctx.save();
+        // Calculate smooth alpha opacity fade out
+        let alpha = Math.max(0, this.life / this.maxLife);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = this.color;
+        // Inject a glowing trail effect
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = this.color;
+        
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
+// Spawns a small, subtle ambient spray of sparks when a block is actively scanned
+function spawnSmallScanSparks(gridX, gridY, colorHex) {
+    const pixelX = gridX * BLOCK_SIZE + BLOCK_SIZE / 2;
+    const pixelY = gridY * BLOCK_SIZE + BLOCK_SIZE / 2;
+    
+    // Fire 3-5 lightweight upward escaping sparks
+    const count = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < count; i++) {
+        let angle = -Math.PI / 2 + (Math.random() * 0.6 - 0.3); // Aim upward
+        let speed = 1 + Math.random() * 2;
+        particles.push(new Particle(
+            pixelX,
+            pixelY,
+            colorHex,
+            Math.random() * 2 + 1, // Small size
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            200 + Math.random() * 300 // Shorter lifetime (ms)
+        ));
+    }
+}
+
+// Spawns a dramatic, high-density radial firework explosion when blocks explode away
+function spawnLargeBurstFirework(gridX, gridY, colorHex) {
+    const pixelX = gridX * BLOCK_SIZE + BLOCK_SIZE / 2;
+    const pixelY = gridY * BLOCK_SIZE + BLOCK_SIZE / 2;
+    
+    // Fire 15-20 rapid velocities outwards in a beautiful radial ring configuration
+    const count = 15 + Math.floor(Math.random() * 6);
+    for (let i = 0; i < count; i++) {
+        let angle = Math.random() * Math.PI * 2; // Full 360 radial distribution
+        let speed = 2 + Math.random() * 4;       // Faster, energetic speeds
+        particles.push(new Particle(
+            pixelX,
+            pixelY,
+            colorHex,
+            Math.random() * 3 + 1.5, // Larger chunkier firework embers
+            Math.cos(angle) * speed,
+            Math.sin(angle) * speed,
+            600 + Math.random() * 400 // Long-lasting dramatic burn (ms)
+        ));
+    }
+}
+
+
+// Gravity settlement processing
+function applyGravity() {
+    let settled = false;
+    for (let c = 0; c < COLS; c++) {
+        for (let r = ROWS - 1; r > 0; r--) {
+            if (grid[r][c] === null && grid[r-1][c] !== null) {
+                grid[r][c] = grid[r-1][c];
+                grid[r-1][c] = null;
+                settled = true;
+            }
+        }
+    }
+    if (settled) applyGravity(); // Cascade until completely flat
+}
+
+// Scans playfield structure to flag matched clusters (ignoring gray blockages)
+function scanMatches() {
+    // Clear flags completely across the entire playfield grid matrix
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c]) {
+                grid[r][c].matched = false;
+                grid[r][c].isInitialThreeMatch = false; // Reset chain anchor dots tracker
+            }
+        }
+    }
+
+    let foundMatch = false;
+
+    // Scan for 3-in-a-row Horizontal segments
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS - 2; c++) {
+            if (grid[r][c] && grid[r][c+1] && grid[r][c+2]) {
+                if (!grid[r][c].isBlockage && !grid[r][c+1].isBlockage && !grid[r][c+2].isBlockage) {
+                    let type = grid[r][c].colorType;
+                    if (grid[r][c+1].colorType === type && grid[r][c+2].colorType === type) {
+                        grid[r][c].matched = true;
+                        grid[r][c+1].matched = true;
+                        grid[r][c+2].matched = true;
+                        
+                        // Flag as core initial anchor segments for 40% multiply masks
+                        grid[r][c].isInitialThreeMatch = true;
+                        grid[r][c+1].isInitialThreeMatch = true;
+                        grid[r][c+2].isInitialThreeMatch = true;
+                        
+                        foundMatch = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Scan for 3-in-a-row Vertical segments
+    for (let c = 0; c < COLS; c++) {
+        for (let r = 0; r < ROWS - 2; r++) {
+            if (grid[r][c] && grid[r+1][c] && grid[r+2][c]) {
+                if (!grid[r][c].isBlockage && !grid[r+1][c].isBlockage && !grid[r+2][c].isBlockage) {
+                    let type = grid[r][c].colorType;
+                    if (grid[r+1][c].colorType === type && grid[r+2][c].colorType === type) {
+                        grid[r][c].matched = true;
+                        grid[r+1][c].matched = true;
+                        grid[r+2][c].matched = true;
+                        
+                        // Flag as core initial anchor segments for 40% multiply masks
+                        grid[r][c].isInitialThreeMatch = true;
+                        grid[r+1][c].isInitialThreeMatch = true;
+                        grid[r+2][c].isInitialThreeMatch = true;
+                        
+                        foundMatch = true;
+                    }
+                }
+            }
+        }
+    }
+
+    // Branch and flood-fill connected elements of matching adjacent color types
+    if (foundMatch) {
+        let visited = Array(ROWS).fill().map(() => Array(COLS).fill(false));
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                // If it is a confirmed initial block anchor, branch outwards to lighter chain blocks
+                if (grid[r][c] && grid[r][c].isInitialThreeMatch && !visited[r][c]) {
+                    floodFill(r, c, grid[r][c].colorType, visited);
+                }
+            }
+        }
+    }
+}
+
+// Flood fill helper to expand matched clusters (skips gray blockages)
+function floodFill(r, c, type, visited) {
+    if (r < 0 || r >= ROWS || c < 0 || c >= COLS) return;
+    if (visited[r][c] || !grid[r][c] || grid[r][c].isBlockage || grid[r][c].colorType !== type) return;
+
+    visited[r][c] = true;
+    grid[r][c].matched = true; 
+
+    // NOTE: If it wasn't part of the initial core 3-in-a-row structural loops, 
+    // it keeps isInitialThreeMatch = false, which sets it as a 18% chain reaction block overlay!
+    
+    floodFill(r+1, c, type, visited);
+    floodFill(r-1, c, type, visited);
+    floodFill(r, c+1, type, visited);
+    floodFill(r, c-1, type, visited);
+}
+
+// Sweeps the field to mark all matching blocks for extraction when a burst asset lands
+function executeBurstClear(targetColorIndex) {
+    let burstCount = 0;
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] && grid[r][c].colorType === targetColorIndex && !grid[r][c].isBlockage) {
+                grid[r][c].matched = true;
+                grid[r][c].highlighted = true; // Auto-highlight to bypass regular metronome line delays
+                burstCount++;
+            }
+        }
+    }
+    if (burstCount > 0) {
+        // --- LEVEL 3 BALANCE: STRETCHED PAIR MATRIX ---
+        // Slow down combo earnings by requiring triplets instead of pairs
+        let comboBonusSteps = Math.floor(burstCount / 3); // Swapped 2 for 3
+        combo += comboBonusSteps;
+        
+        score += burstCount * 10 * combo;
+        updateHUD();
+
+        // Play your original activation sweep chord confirmation
+        playTone(getLevelConfig().baseNote * 2, 'sine', 0.3, 0.25);
+        
+        // --- TRIGGER CONTINUOUS AMBIENT POWER-UP HUM ---
+        startBurstHumSFX();
+        // -----------------------------------------------
+    }
+}
+
+
+// Scans line pass validation and triggers density-scaled reverb chimes for ALL matched blocks
+// Scans line pass validation and triggers an unified, high-polyphony safe sequential strum chord
+function runMetronomeScan(rowY) {
+    let matchedBlocksInRow = [];
+    const config = getLevelConfig();
+    
+    for (let c = 0; c < COLS; c++) {
+        let b = grid[rowY][c];
+        if (b && b.matched) {
+            // Check if this block has already been processed by the bar on this pass
+            if (!b.hasBeenScannedByBar) {
+                b.hasBeenScannedByBar = true; // Mark to prevent double-triggering sounds
+                b.highlighted = true; // Ensure visual flash is active
+                matchedBlocksInRow.push({ col: c, block: b });
+                
+                // Spawn the small visual scan sparks
+                let blockColor = b.isBlockage ? '#55555e' : config.colors[b.colorType];
+                if (typeof spawnSmallScanSparks === 'function') {
+                    spawnSmallScanSparks(c, rowY, blockColor);
+                }
+            }
+        }
+    }
+
+    let scoredSegments = matchedBlocksInRow.length;
+
+    if (scoredSegments > 0) {
+        // Boost Combo dynamically based on active segment passes
+        combo += Math.floor(scoredSegments / 3);
+        score += scoredSegments * 10 * combo;
+        updateHUD();
+
+        // Calculate unified spacey note mechanics
+        let pitchMultiplier = 1 + (rowY * 0.1);
+        let baseFrequency = config.baseNote * pitchMultiplier;
+
+        let densitySurplus = Math.max(0, scoredSegments - 3);
+        let volumeMultiplier = Math.min(3.0, 1.0 + (densitySurplus * 0.5));
+        let baseVolume = 0.12 * volumeMultiplier;
+
+        // --- POLYPHONY FIX: RHYTHMIC SEQUENTIAL STRUM ---
+        // Micro-space out the row elements so the browser audio clock can cleanly build every node!
+        matchedBlocksInRow.forEach((item, index) => {
+            setTimeout(() => {
+                if (!isPlaying) return;
+                
+                // Slightly pan pitches across columns from left-to-right for a rich stereo-style layout feel
+                let columnPitchMod = 1 + (item.col * 0.02);
+                let clearFreq = baseFrequency * columnPitchMod;
+                
+                // Balance volume per-voice to keep the collective master channel clean
+                let voiceVol = (baseVolume / scoredSegments) * 1.5;
+
+                // Fire clean primary wave voice
+                playTone(clearFreq, 'sine', 0.18, voiceVol);
+                
+                // Layer a soft fifth harmony on alternating blocks
+                if (index % 2 === 0) {
+                    playTone(clearFreq * 1.5, 'sine', 0.12, voiceVol * 0.5);
+                }
+            }, index * 25); // 25ms micro-offset completely bypasses hardware sound dropping bugs
+        });
+
+        // Procedural Reverb/Echo Tails for high density clears
+        if (densitySurplus > 0 && audioCtx) {
+            let echoCount = Math.min(3, densitySurplus);
+            for (let i = 1; i <= echoCount; i++) {
+                let beatWindow = (60 / config.bpm) * 1000;
+                let echoDelayTime = (i * (beatWindow / 8));
+                let echoVolume = baseVolume * Math.pow(0.45, i);
+                let echoPitch = baseFrequency * (1 + (i * 0.05));
+
+                setTimeout(() => {
+                    if (!isPlaying) return;
+                    playTone(echoPitch, 'sine', 0.15, echoVolume);
+                }, echoDelayTime);
+            }
+        }
+    }
+}
+
+
+
+// Process burst deletion at end of metronome pass loop with density extraction
+function clearHighlightedBlocks() {
+    let clearedAny = false;
+    const config = getLevelConfig();
+    
+    // TRACK EXTRACTION COUNTS FOR VISUAL AND AUDIO FINESSE
+    let piecesClearedCount = 0;
+    let totalOccupiedSpaces = 0;
+    
+    // Analyze grid states for metrics tracking
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] !== null) {
+                totalOccupiedSpaces++;
+                if (grid[r][c].highlighted) {
+                    piecesClearedCount++; // Increment total fireworks counter
+                }
+            }
+        }
+    }
+    let boardFillRatio = totalOccupiedSpaces / (ROWS * COLS);
+    
+    // Process block extractions and particle spawns
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c] && grid[r][c].highlighted) {
+                let blockColor = grid[r][c].isBlockage ? '#55555e' : config.colors[grid[r][c].colorType];
+                if (typeof spawnLargeBurstFirework === 'function') {
+                    spawnLargeBurstFirework(c, r, blockColor);
+                }
+                
+                grid[r][c] = null;
+                clearedAny = true;
+            }
+        }
+    }
+    
+    if (clearedAny) {
+        // 1. Layer the heavy, density-scaled sub-bass boom rumble
+        if (typeof playClearBurstSFX === 'function') {
+            playClearBurstSFX(config, boardFillRatio);
+        }
+        
+        // 2. Layer the clean, middle-register spacey success arpeggio
+        if (typeof playFireworkSuccessSFX === 'function') {
+            playFireworkSuccessSFX(config, piecesClearedCount);
+        }
+        
+        applyGravity();
+        
+        // --- BURST POWER-UP BACKGROUND HUM HOUSEKEEPING ---
+        // Verify if any burst-highlighted blocks are still left anywhere on the field
+        let anyBurstBlocksRemaining = false;
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (grid[r][c] && grid[r][c].matched) {
+                    anyBurstBlocksRemaining = true;
+                    break;
+                }
+            }
+            if (anyBurstBlocksRemaining) break;
+        }
+        
+        // Turn off the pulsating hum loop if the metronome has successfully cleared all items
+        if (!anyBurstBlocksRemaining && typeof stopBurstHumSFX === 'function') {
+            stopBurstHumSFX();
+        }
+        // --------------------------------------------------
+        
+        // BOARD ADVANCE SYSTEM: Evaluates dynamic level-specific scoring variance thresholds
+        const targetScore = getNextLevelTargetScore();
+        if (score >= targetScore) {
+            currentLevel++; // Keeps counting up past 10 (e.g., 11, 12) to calculate prestige states
+            
+            // Refresh preview box colors immediately to match the brand-new board configuration palette
+            if (typeof drawNextPreview === 'function') {
+                drawNextPreview();
+            }
+            
+            // SPECIAL RULE: Clear all gray blockage blocks upon board advancement
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (grid[r][c] && grid[r][c].isBlockage) {
+                        grid[r][c] = null;
+                    }
+                }
+            }
+            applyGravity(); // Re-settle playfield layers cleanly
+            
+            // Play a long shifting tone to mark board transition entries
+            playTone(getLevelConfig().baseNote * 2, 'sine', 0.5, 0.25);
+            updateHUD();
+        }
+    }
+    
+    combo = 1; 
+    updateHUD();
+}
+
+
+// HUD updates
+function updateHUD() {
+    document.getElementById('score-val').innerText = score;
+    document.getElementById('combo-val').innerText = 'X' + combo;
+    document.getElementById('level-val').innerText = currentLevel;
+    if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('lumines_high', highScore);
+    }
+    document.getElementById('high-val').innerText = highScore;
+}
+
+// Ambient Background Track loop simulation logic
+let musicTick = 0;
+function playAmbientMusic(rowStep) {
+    if (!isPlaying || rowStep < 0 || rowStep >= ROWS) return;
+    
+    const config = getLevelConfig();
+    const action = config.sequence[rowStep];
+
+    if (action === null) return;
+
+    if (action === 'CRASH') {
+        playBoardCrash(config);
+        return;
+    }
+
+    // Dynamic pitch escalation (crescendo layout tracking)
+    let dynamicFrequency = config.baseNote * action;
+    
+    // Scale up volume linearly as the bar nears the bottom edge of the grid
+    let stepVolume = 0.08 + (rowStep / ROWS) * 0.15; 
+    
+    // Play structural rhythmic pitch patterns
+    playTone(dynamicFrequency, config.wave, 0.15, stepVolume);
+    
+    // Level-specific complimentary bass triggers layered underneath on key structural beats
+    if (rowStep === 0 || rowStep === 4 || rowStep === 8) {
+        playTone(config.baseNote * 0.5, 'sine', 0.25, 0.22);
+    }
+}
+
+// Emulates distinct signature musical closures smoothly matching the tone of the track
+function playBoardCrash(config) {
+    if (!audioCtx) return;
+
+    if (config.crashType === 'duh-tone') {
+        try {
+            // Emulate a warm, clean, melodic "Dum" resolution using pure tones
+            let osc1 = audioCtx.createOscillator();
+            let osc2 = audioCtx.createOscillator();
+            let gainNode = audioCtx.createGain();
+            
+            // Use the soft triangle wave matching the main track body
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(config.baseNote, audioCtx.currentTime);
+            
+            // Layer a smooth sub-bass sine wave exactly one octave below for warmth
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(config.baseNote * 0.5, audioCtx.currentTime);
+
+            // Give it a gentle volume decay that matches the rhythm naturally
+            gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+
+            osc1.connect(gainNode);
+            osc2.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            osc1.start();
+            osc2.start();
+            osc1.stop(audioCtx.currentTime + 0.3);
+            osc2.stop(audioCtx.currentTime + 0.3);
+        } catch(e) {}
+    } else if (config.crashType === 'sine-sweep') {
+        // Soft sub-bass plunge for the ambient/slow tracks
+        try {
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(config.baseNote * 1.0, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(config.baseNote * 0.5, audioCtx.currentTime + 0.3);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        } catch(e) {}
+    }
+}
+
+
+
+// Central Core Engine Game Loops
+// Central Core Engine Game Loops
+function update(time = 0) {
+    if (!isPlaying) return;
+
+    // Change const to let so the anti-freeze guard can rewrite spikes
+    let deltaTime = time - lastTime;
+    lastTime = time;
+
+    // --- ANTI-FREEZE SPIKE GUARD ---
+    // If the loop lags on initialization, cap the deltaTime to avoid 
+    // trying to process hundreds of ticks simultaneously and freezing up.
+    if (deltaTime > 100) {
+        deltaTime = 16.66; // Fallback to a single smooth frame time block
+    }
+    // --------------------------------
+
+    // --- CONTINUOUS SLIDE AUTOREPEAT STATE MACHINE ---
+    if (activeSlideAction === 'left' || activeSlideAction === 'right') {
+        slideHoldTimer += deltaTime;
+        // Check if the initial hold delay window has elapsed
+        if (slideHoldTimer >= SLIDE_INITIAL_DELAY) {
+            // Subtract interval ticks to process looping slide updates smoothly
+            slideHoldTimer -= SLIDE_REPEAT_RATE;
+            handleInput(activeSlideAction);
+        }
+    }
+    // -------------------------------------------------
+
+    const config = getLevelConfig();
+    // Metronome bar movement speed derived directly from active level BPM rate
+    const metronomeSpeed = (ROWS * BLOCK_SIZE) / ((60 / config.bpm) * 4 * 1000); 
+    
+    let oldRowY = Math.floor(metronomeY / BLOCK_SIZE);
+    metronomeY += metronomeSpeed * deltaTime;
+    let newRowY = Math.floor(metronomeY / BLOCK_SIZE);
+
+    // Continuous Metronome Scan row changes moving top-to-bottom
+    if (newRowY !== oldRowY && newRowY < ROWS) {
+        runMetronomeScan(newRowY);
+        // Play the specific musical sound designed for this exact vertical coordinate slice
+        playAmbientMusic(newRowY);
+    }
+
+    // Handle end of metronome pass loop reset (hits the absolute bottom)
+    if (metronomeY >= ROWS * BLOCK_SIZE) {
+        metronomeY = 0;
+        clearHighlightedBlocks();
+        scanMatches(); // Re-scan newly fallen structures immediately
+        
+        // --- CLEANUP: Reset the sound tracking flag on any remaining grid blocks for the next pass ---
+        for (let r = 0; r < ROWS; r++) {
+            for (let c = 0; c < COLS; c++) {
+                if (grid[r][c]) {
+                    grid[r][c].hasBeenScannedByBar = false;
+                }
+            }
+        }
+        // --------------------------------------------------------------------------------------------
+        
+        runMetronomeScan(0); // Scan top row for the next pass
+        playAmbientMusic(0); // Trigger step 0 immediately on loop rollover
+    }
+
+    // Standard drop loop timer adjustments
+    dropCounter += deltaTime;
+    if (dropCounter > 1000) {
+        if (currentPiece) {
+            if (!currentPiece.move(0, 1)) {
+                currentPiece.lock();
+                scanMatches();
+                
+                // Pull from next piece queue and generate a fresh lookahead frame
+                currentPiece = nextPiece;
+                nextPiece = new Piece();
+                drawNextPreview();
+
+                // Check Game Over condition
+                if (currentPiece.checkCollision()) {
+                    isPlaying = false;
+                    document.getElementById('overlay-text').innerText = "GAME OVER";
+                    document.getElementById('overlay').classList.add('visible');
+                }
+            }
+        }
+        dropCounter = 0;
+    }
+
+    // --- ANIMATE VISUAL PARTICLES ---
+    for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update(deltaTime);
+        // Self-clean expired embers automatically to maintain smooth rendering frame rates
+        if (particles[i].life <= 0) {
+            particles.splice(i, 1);
+        }
+    }
+    // --------------------------------
+
+    draw();
+    animationFrameId = requestAnimationFrame(update);
+}
+
+
+
+
+
+// Canvas Drawing Interface Operations
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw Static/Settled Grid Block Structures
+    for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+            if (grid[r][c]) {
+                drawBlock(c, r, grid[r][c]);
+            }
+        }
+    }
+
+    // Draw active drop controller pieces
+    if (currentPiece) {
+        const blocks = currentPiece.getBlocks();
+        for (let b of blocks) {
+            drawBlock(b.x, b.y, b.block);
+        }
+    }
+
+        // Draw Dynamic Laser Metronome Line overlay moving from top to bottom
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+    ctx.lineWidth = 4;
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#00ffcc';
+    ctx.beginPath();
+    ctx.moveTo(0, metronomeY);
+    ctx.lineTo(canvas.width, metronomeY);
+    ctx.stroke();
+    ctx.shadowBlur = 0; // Clear blur effects safely
+
+    // --- DRAW ACTIVE FIREWORK EMBERS ---
+    particles.forEach(p => p.draw());
+    // -----------------------------------
+}
+
+function drawBlock(x, y, block) {
+    const config = getLevelConfig();
+    
+    // 1. Choose base color profile based on block properties
+    if (block.isBlockage) {
+        ctx.fillStyle = '#55555e'; // Slate Gray for blockages
+    } else {
+        ctx.fillStyle = config.colors[block.colorType];
+    }
+    
+    // 2. POST-LEVEL 10 VISUAL OVERRIDE: Applies dynamic color-shifting loop filter
+    if (currentLevel > 10 && !block.isBlockage) {
+        let loopIteration = Math.floor((currentLevel - 1) / 10);
+        ctx.save();
+        ctx.filter = `hue-rotate(${loopIteration * 45}deg) saturate(1.8)`;
+    }
+    
+    // 3. Render base block square
+    ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    
+    // 4. Draw high-contrast default outer block divider borders
+    ctx.strokeStyle = '#111';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+
+    // Calculate center placement positions of the block for inner overlays
+    let centerX = x * BLOCK_SIZE + BLOCK_SIZE / 2;
+    let centerY = y * BLOCK_SIZE + BLOCK_SIZE / 2;
+    
+    // Pushed out to 30x30 to sit tight against the 40x40 block edges
+    let innerCoreSize = 28; 
+
+    // 5. Render Active State Highlights & Special Overlays
+    if (block.highlighted) {
+        // Core metronome line deletion active flash frame
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+        
+    } else if (block.isBurst) {
+        // Standard power-up layout item target indicator rings
+        let pulse = Math.abs(Math.sin(performance.now() / 120));
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.4 + pulse * 0.6})`;
+        ctx.lineWidth = 4;
+        ctx.strokeRect(x * BLOCK_SIZE + 6, y * BLOCK_SIZE + 6, BLOCK_SIZE - 12, BLOCK_SIZE - 12);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(x * BLOCK_SIZE + 14, y * BLOCK_SIZE + 14, BLOCK_SIZE - 28, BLOCK_SIZE - 28);
+        
+    } else if (block.matched) {
+        // --- MATCHED STATE: SWAP TO THE LIGHT OUTER FRAME WITH SMALL MULTIPLY CUBE ---
+        // Draw the main outer crisp white target frame outline
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(x * BLOCK_SIZE + 4, y * BLOCK_SIZE + 4, BLOCK_SIZE - 8, BLOCK_SIZE - 8);
+
+        // Run multiply blending for a smaller, centered cube matrix
+        ctx.save();
+        ctx.globalCompositeOperation = 'multiply';
+        
+        // RESTORED DIMENSIONS: Returned to 16x16 to sit cleanly right in the core center
+        let matchCoreSize = 16; 
+        
+        // 40% opacity for core triggers, 18% opacity for trailing chain reactions
+        let targetOpacity = block.isInitialThreeMatch ? 0.40 : 0.18;
+        ctx.fillStyle = `rgba(0, 0, 0, ${targetOpacity})`;
+        ctx.fillRect(centerX - matchCoreSize / 2, centerY - matchCoreSize / 2, matchCoreSize, matchCoreSize);
+        
+        ctx.restore(); // Drop out of multiply mode
+
+        // Draw the inner white hairline border tightly around the small center cube
+        ctx.strokeStyle = `rgba(255, 255, 255, ${block.isInitialThreeMatch ? 0.75 : 0.40})`;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(centerX - matchCoreSize / 2, centerY - matchCoreSize / 2, matchCoreSize, matchCoreSize);
+
+    } else {
+        // --- UNMATCHED / NORMAL STATE: PERMANENT DARKENED THICKER INNER STROKE ---
+        if (!block.isBlockage) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'multiply';
+            
+            // Keeps your preferred thicker 2.5px dark border hugging the outer edges
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.18)';
+            ctx.lineWidth = 2.5; 
+            ctx.strokeRect(centerX - innerCoreSize / 2, centerY - innerCoreSize / 2, innerCoreSize, innerCoreSize);
+            
+            ctx.restore();
+        }
+    }
+    
+    if (currentLevel > 10 && !block.isBlockage) {
+        ctx.restore(); // Cleanly exit post-10 context filter states
+    }
+}
+
+
+// Draws a tiny preview of the next upcoming drop piece inside the HUD menu header bar
+function drawNextPreview() {
+    nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+    if (!nextPiece) return;
+
+    const config = getLevelConfig();
+    const miniBlockSize = 20; // Scale blocks down to 20x20 to sit inside the 40x40 canvas frame
+
+    // Standardize preview layout to render side-by-side horizontally centered inside box
+    // Block 1 (Left side)
+    let c1 = nextPiece.b1.isBlockage ? '#55555e' : config.colors[nextPiece.b1.colorType];
+    nextCtx.fillStyle = c1;
+    nextCtx.fillRect(0, 10, miniBlockSize, miniBlockSize);
+    nextCtx.strokeStyle = '#111';
+    nextCtx.lineWidth = 1;
+    nextCtx.strokeRect(0, 10, miniBlockSize, miniBlockSize);
+
+    // Block 2 (Right side)
+    let c2 = nextPiece.b2.isBlockage ? '#55555e' : config.colors[nextPiece.b2.colorType];
+    nextCtx.fillStyle = c2;
+    nextCtx.fillRect(20, 10, miniBlockSize, miniBlockSize);
+    nextCtx.strokeRect(20, 10, miniBlockSize, miniBlockSize);
+    
+    // Add flashing neon inner ring overlay if the item contains a rare color burst block modifier
+    if (nextPiece.b2.isBurst) {
+        nextCtx.strokeStyle = '#ffffff';
+        nextCtx.lineWidth = 2;
+        nextCtx.strokeRect(23, 13, miniBlockSize - 6, miniBlockSize - 6);
+    }
+}
+
+
+
+// Process core single-frame grid translations and trigger specific acoustic feedbacks
+function handleInput(action) {
+    if (!isPlaying || !currentPiece) return;
+    const config = getLevelConfig();
+    
+    switch(action) {
+        case 'left':  
+            if (currentPiece.move(-1, 0)) {
+                hasHitWallSinceLastInput = false; // Reset wall flag
+                playSlideEchoSFX(config);
+            } else if (!hasHitWallSinceLastInput) {
+                hasHitWallSinceLastInput = true;
+                playWallBumpSFX(config);
+            }
+            break;
+        case 'right': 
+            if (currentPiece.move(1, 0)) {
+                hasHitWallSinceLastInput = false; 
+                playSlideEchoSFX(config);
+            } else if (!hasHitWallSinceLastInput) {
+                hasHitWallSinceLastInput = true;
+                playWallBumpSFX(config);
+            }
+            break;
+        case 'rotate': 
+            currentPiece.rotate();    
+            break;
+        case 'drop':  
+            while(currentPiece.move(0, 1)) {} 
+            currentPiece.lock();
+            scanMatches();
+                            // Pull from next piece queue and generate a fresh lookahead frame
+                currentPiece = nextPiece;
+                nextPiece = new Piece();
+                drawNextPreview();
+
+            hasHitWallSinceLastInput = false;
+            break;
+    }
+    draw();
+}
+
+
+
+
+
+
+
+
+
+
+// Expanded 4-Way Mobile Gesture Controller (With Smart Scroll Bypass)
+const gameCanvasElement = document.getElementById('canvas') || document.querySelector('canvas');
+
+if (gameCanvasElement) {
+    // 1. Capture initial touch anchors
+    gameCanvasElement.addEventListener('touchstart', (e) => {
+        if (!isPlaying) return;
+        
+        // --- SMART SCROLL BYPASS CORE ---
+        // Block browser scrolling and rubber-banding ONLY when touching inside the canvas bounds
+        e.preventDefault(); 
+        // ---------------------------------
+        
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchHasMovedHorizontally = false; // Reset gesture priority lock
+        slideHoldTimer = 0;
+    }, { passive: false });
+
+       // 2. Process Real-Time 4-Way Trajectory Vectors with Accumulation Smoothing
+    gameCanvasElement.addEventListener('touchmove', (e) => {
+        if (!isPlaying || !currentPiece) return;
+        e.preventDefault();
+
+        const touch = e.touches[0]; // Anchor strictly to the first active point tracking context
+        
+        // Calculate the raw pixel distance moved since the last frame sweep update
+        let currentDeltaX = touch.clientX - touchStartX;
+        let deltaY = touch.clientY - touchStartY;
+
+        // --- ACCUMULATION DAMPENING ARCHITECTURE ---
+        // Feed raw delta movements into the accumulator, scaled down by our dampener value
+        touchAccumulatorX += currentDeltaX / DRAG_DIVIDER;
+        
+        // Update the baseline anchor instantly so we measure step-by-step frame changes
+        touchStartX = touch.clientX; 
+        // --------------------------------------------
+
+        // --- HORIZONTAL NAVIGATION CHANNEL ---
+        // Evaluate horizontal movement patterns using our smooth accumulator instead of raw spikes
+        if (Math.abs(touchAccumulatorX) > TOUCH_SLIDE_THRESHOLD && Math.abs(touchAccumulatorX) > Math.abs(deltaY)) {
+            touchHasMovedHorizontally = true; // Engage vertical gesture lockout security shield
+            
+            if (touchAccumulatorX > 0) {
+                if (activeSlideAction !== 'right') {
+                    activeSlideAction = 'right';
+                    slideHoldTimer = 0;
+                    handleInput('right');
+                }
+            } else {
+                if (activeSlideAction !== 'left') {
+                    activeSlideAction = 'left';
+                    slideHoldTimer = 0;
+                    handleInput('left');
+                }
+            }
+            
+            // CRITICAL RESET: Drain the accumulator by the amount used to advance one grid space
+            // This prevents the piece from flying or "skipping" across multiple lanes unexpectedly
+            touchAccumulatorX = 0; 
+        }
+
+        // --- VERTICAL GESTURE CHANNEL (Flick Up / Swipe Down) ---
+        if (!touchHasMovedHorizontally && Math.abs(deltaY) > TOUCH_GESTURE_THRESHOLD) {
+            if (deltaY < 0) {
+                handleInput('rotate');
+                touchStartY = touch.clientY; 
+                touchAccumulatorX = 0; // Wipe accumulation metrics cleanly
+            } else {
+                handleInput('drop');
+                activeSlideAction = null;
+                touchStartY = touch.clientY;
+                touchHasMovedHorizontally = true; 
+                touchAccumulatorX = 0;
+            }
+        }
+    }, { passive: false });
+
+    // 3. Reset Continuous State Arrays on Finger Lift
+    const clearTouchSlideAction = (e) => {
+        if (activeSlideAction === 'left' || activeSlideAction === 'right') {
+            activeSlideAction = null;
+        }
+        touchHasMovedHorizontally = false;
+        touchAccumulatorX = 0; // FIXED: Resets your drag buffer safely for the next piece drop
+    };
+
+    gameCanvasElement.addEventListener('touchend', clearTouchSlideAction);
+    gameCanvasElement.addEventListener('touchcancel', clearTouchSlideAction);
+}
+
+
+
+
+
+
+// Asynchronous Keyboard Bindings Mapping
+window.addEventListener('keydown', (e) => {
+    if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', ' '].includes(e.key)) {
+        e.preventDefault(); 
+    }
+    if (keysPressed[e.key]) return; // Block operating system key-repeat ghosting
+    keysPressed[e.key] = true;
+
+    if (e.key === 'ArrowLeft') {
+        activeSlideAction = 'left';
+        slideHoldTimer = 0;
+        handleInput('left');
+    }
+    if (e.key === 'ArrowRight') {
+        activeSlideAction = 'right';
+        slideHoldTimer = 0;
+        handleInput('right');
+    }
+    if (e.key === 'ArrowUp') handleInput('rotate');
+    if (e.key === 'ArrowDown' || e.key === ' ') handleInput('drop');
+});
+
+window.addEventListener('keyup', (e) => {
+    keysPressed[e.key] = false;
+    if (e.key === 'ArrowLeft' && activeSlideAction === 'left') activeSlideAction = null;
+    if (e.key === 'ArrowRight' && activeSlideAction === 'right') activeSlideAction = null;
+});
+
+// Asynchronous Mobile Touch Screen / Cursor Hook Controllers
+function setupContinuousButton(elementId, action) {
+    const btn = document.getElementById(elementId);
+    
+    const startAction = (e) => {
+        e.preventDefault();
+        activeSlideAction = action;
+        slideHoldTimer = 0;
+        handleInput(action);
+    };
+    
+    const endAction = (e) => {
+        e.preventDefault();
+        if (activeSlideAction === action) activeSlideAction = null;
+    };
+
+    btn.addEventListener('touchstart', startAction);
+    btn.addEventListener('touchend', endAction);
+    btn.addEventListener('mousedown', startAction);
+    window.addEventListener('mouseup', endAction);
+}
+
+// Bind movement controls
+setupContinuousButton('btn-left', 'left');
+setupContinuousButton('btn-right', 'right');
+
+// Tap actions for single trigger controls
+document.getElementById('btn-rot').addEventListener('touchstart', (e) => { e.preventDefault(); handleInput('rotate'); });
+document.getElementById('btn-rot').addEventListener('click', () => handleInput('rotate'));
+document.getElementById('btn-drop').addEventListener('touchstart', (e) => { e.preventDefault(); handleInput('drop'); });
+document.getElementById('btn-drop').addEventListener('click', () => handleInput('drop'));
+
+
+// Game Setup Initialization Launcher (With Instant Internal Reset Cheat)
+document.getElementById('start-btn').addEventListener('click', () => {
+    // 1. ENGINE PURGE CHEAT: Safely terminate any runaway background browser threads
+    if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+    }
+    
+    // 2. Clear any active background audio oscillators to prevent sound loops
+    if (typeof stopBurstHumSFX === 'function') {
+        stopBurstHumSFX();
+    }
+    
+    // 3. Force browser Web Audio API nodes to instantly clear and re-initialize
+    initAudio();
+    if (audioCtx) {
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        // Micro-adjustment: clear scheduled timeline nodes to avoid audio engine desync
+        try { audioCtx.getOutputTimestamp(); } catch(e) {}
+    }
+
+    // 4. Wipe canvas context memory clean to reset all drawing boundaries
+    if (ctx) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath(); // Hard reset path buffer memory
+    }
+
+    // 5. Empty game data tracking matrices completely
+    initGrid();
+    particles = []; 
+    
+    // 6. Reset all gameplay variables back to baseline values
+    score = 0;
+    currentLevel = 1;
+    combo = 1;
+    metronomeY = 0;
+    activeSlideAction = null;
+    keysPressed = {};
+    updateHUD();
+    
+    // 7. Prime the next piece preview layout queue
+    nextPiece = new Piece();
+    currentPiece = new Piece();
+    if (typeof drawNextPreview === 'function') {
+        drawNextPreview();
+    }
+    
+    // 8. HIDE SCREEN OVERLAYS
+    document.getElementById('overlay').classList.remove('visible');
+    isPlaying = true;
+    
+    // 9. TIMING SYNCHRONIZATION IMMUNITY: 
+    // Force draw state first, then cleanly request a fresh animation frame 
+    // using a zeroed timestamp handoff to guarantee a freeze-free boot loop
+    draw(); 
+    
+    setTimeout(() => {
+        lastTime = performance.now(); // Zero out the performance clock
+        animationFrameId = requestAnimationFrame(update);
+    }, 1); // 1 millisecond micro-buffer completely isolates loop timing steps
+});
+
+
+
+// Initial Setup View Render
+updateHUD();
+
+
+
+
+</script></body></html>
